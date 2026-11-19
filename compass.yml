@@ -1,0 +1,16 @@
+name: skip-live-activities
+id: ari:cloud:compass:433f2c52-baf3-4040-bf96-3fd09bf998da:component/c10a88dc-15a4-484b-b7c7-f1c56f373c78/653c5db4-97fa-428c-9688-fd207dc171e0
+description: Cross-platform Live Activities (iOS) and Live Updates (Android 16) for Skip apps
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/MollisWare/skip-live-activities
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+customFields: null
