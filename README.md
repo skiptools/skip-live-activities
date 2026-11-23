@@ -52,8 +52,6 @@ And add it to your Skip target:
    }
    ```
 
-   The `Showcase/` app contains a working extension target to copy from.
-
 ### Android
 
 Add the permissions to your `AndroidManifest.xml`:
@@ -209,10 +207,6 @@ Send the message with high priority so it is delivered while the device is idle.
 ### Android
 
 The notification uses the channel `skip.liveactivities` and the activity id as notification tag, so you can inspect it with `NotificationManager.getActiveNotifications()`.
-
-## Showcase
-
-`Showcase/` is a small Skip app that starts, advances and ends a 2 minute workout activity. It includes the iOS widget extension and the Android manifest permissions. Launch the iOS app with `-autostart` to start the activity without tapping.
 
 ## Building
 
