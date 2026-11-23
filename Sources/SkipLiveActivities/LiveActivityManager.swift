@@ -255,6 +255,25 @@ public final class LiveActivityManager {
         }
     }
 
+    /// iOS 16.2 and later: a stream of the ids of activities that appear, including ones the system started
+    /// from a push-to-start while the app was not running.
+    ///
+    /// Collect it from launch (and keep it running). For each id, observe ``pushToken(for:)`` and send the
+    /// activity's own token to your backend, so it can update and end an activity it started remotely.
+    /// Activities that already run when collection begins are reported first.
+    @available(iOS 16.2, *)
+    public func activityStarts() -> AsyncStream<String> {
+        AsyncStream { continuation in
+            let task = Task {
+                for await activity in Activity<LiveActivityAttributes>.activityUpdates {
+                    continuation.yield(activity.attributes.id)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     @available(iOS 16.2, *)
     private func findActivity(_ id: String) -> Activity<LiveActivityAttributes>? {
         Activity<LiveActivityAttributes>.activities.first {

@@ -167,6 +167,22 @@ if #available(iOS 17.2, *) {
 
 `pushToStartToken` returns the current token, or `nil` until the system issued one.
 
+An activity started this way is a new activity to the app, and the backend needs its own token to update or end it. Pick it up with `activityStarts()`, which reports every activity that appears, including remotely started ones:
+
+```swift
+#if !SKIP
+if #available(iOS 17.2, *) {
+    for await id in LiveActivityManager.shared.activityStarts() {
+        Task {
+            for await token in LiveActivityManager.shared.pushToken(for: id) {
+                // send `token` for activity `id` to your backend
+            }
+        }
+    }
+}
+#endif
+```
+
 **Android: FCM data message.** A data message starts the app process even when it is closed. Hand its data to the library from your `FirebaseMessagingService.onMessageReceived` (or from Swift, where you receive the data):
 
 ```swift
