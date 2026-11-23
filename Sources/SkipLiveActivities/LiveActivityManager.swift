@@ -229,6 +229,32 @@ public final class LiveActivityManager {
         }
     }
 
+    /// iOS 17.2 and later: the current push-to-start token, or `nil` until the system has issued one.
+    ///
+    /// Send it to your backend: with it, the backend can start a `LiveActivityAttributes` activity through
+    /// APNs while the app is not running. Tokens can change, so also observe ``pushToStartTokens()``.
+    @available(iOS 17.2, *)
+    public var pushToStartToken: Data? {
+        Activity<LiveActivityAttributes>.pushToStartToken
+    }
+
+    /// iOS 17.2 and later: a stream of push-to-start tokens, starting with the current one when there is one.
+    ///
+    /// Start collecting it early at launch (and keep it running), because the system can issue a new token
+    /// at any time. Only needs `NSSupportsLiveActivities` and the push notification entitlement.
+    @available(iOS 17.2, *)
+    public func pushToStartTokens() -> AsyncStream<Data> {
+        AsyncStream { continuation in
+            let task = Task {
+                for await token in Activity<LiveActivityAttributes>.pushToStartTokenUpdates {
+                    continuation.yield(token)
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
     @available(iOS 16.2, *)
     private func findActivity(_ id: String) -> Activity<LiveActivityAttributes>? {
         Activity<LiveActivityAttributes>.activities.first {
@@ -237,6 +263,43 @@ public final class LiveActivityManager {
     }
     #endif
     #endif
+
+    // MARK: - Remote messages
+
+    /// Handles a Live Activity command that arrived as a push data message (Android, for example FCM).
+    ///
+    /// iOS starts and updates activities through APNs (see ``pushToStartTokens()``), so this is meant for
+    /// Android, where a data message wakes the app even when it is closed. Call it from your messaging
+    /// service with the message's data, before any other handling:
+    ///
+    /// ```swift
+    /// if await LiveActivityManager.shared.handleRemoteMessage(data) { return }
+    /// ```
+    ///
+    /// Messages with `type` `live_activity` are consumed. The `action` is `show` (start the activity, or
+    /// update it when it is already running) or `end`. See the README for the full payload.
+    /// - Parameter data: The string key/value data of the message.
+    /// - Returns: `true` when the message was a Live Activity message (whether or not the platform showed it),
+    ///   `false` when it is not ours and should be handled elsewhere.
+    @discardableResult
+    public func handleRemoteMessage(_ data: [String: String]) async -> Bool {
+        guard let command = LiveActivityRemoteCommand(data: data) else { return false }
+        if command.isEnd {
+            await end(id: command.id, finalContent: nil, dismissal: LiveActivityDismissal.immediate)
+            return true
+        }
+        guard let content = command.content else { return true }
+        do {
+            if activeIDs().contains(command.id) {
+                try await update(id: command.id, content: content)
+            } else {
+                try await start(id: command.id, content: content, staleDate: command.staleDate)
+            }
+        } catch {
+            // Showing is best effort: a refused permission or an unsupported device is not an error for the sender.
+        }
+        return true
+    }
 
     // MARK: - Android implementation
 

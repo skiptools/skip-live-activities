@@ -130,7 +130,7 @@ for await state in manager.observe(id: "workout-42") { /* active, stale, ended, 
 - **The iOS UI** is SwiftUI inside a WidgetKit extension, which the app owner adds once (see Prerequisites).
 - **Custom Android layouts.** Promoted notifications cannot use custom views, so the look differs per platform.
 - **Typed attributes.** v1 uses one fixed `LiveActivityAttributes` type. Apps that need their own can use the iOS escape hatch below.
-- **Starting from the background on iOS** needs a push-to-start from your backend (iOS 17.2+). Android can start from a scheduled job.
+- **Starting from the background on iOS** needs a push-to-start from your backend (iOS 17.2+); see [Starting from a push](#starting-from-a-push). Android starts from a push data message the same way.
 - **Lifetime.** iOS ends an activity after about 8 hours, with up to 4 more on the lock screen. Android has no such limit.
 
 ## Platform-specific access
@@ -147,6 +147,48 @@ for await token in LiveActivityManager.shared.pushToken(for: "workout-42") {
 ```
 
 `LiveActivityAttributes` (`ActivityAttributes` with `ContentState = LiveActivityContent`) is public on iOS, so you can use ActivityKit directly alongside the manager.
+
+### Starting from a push
+
+Both platforms can be started and updated by your backend while the app is closed. The mechanism differs, so the library gives you one hook per platform.
+
+**iOS 17.2+: push-to-start token.** Send the token to your backend. With it the backend starts an activity through APNs (`event: "start"`, `attributes-type: "LiveActivityAttributes"`, `attributes: {"id": ...}`, and the encoded `LiveActivityContent` as `content-state`).
+
+```swift
+#if !SKIP
+if #available(iOS 17.2, *) {
+    // keep this running from launch: the system can issue a new token at any time
+    for await token in LiveActivityManager.shared.pushToStartTokens() {
+        // send `token` to your backend
+    }
+}
+#endif
+```
+
+`pushToStartToken` returns the current token, or `nil` until the system issued one.
+
+**Android: FCM data message.** A data message starts the app process even when it is closed. Hand its data to the library from your `FirebaseMessagingService.onMessageReceived` (or from Swift, where you receive the data):
+
+```swift
+if await LiveActivityManager.shared.handleRemoteMessage(message.data) { return }
+```
+
+It returns `true` for Live Activity messages (the others are left to you). The data values are strings:
+
+| Key | Meaning |
+| --- | --- |
+| `type` | `live_activity` (required) |
+| `action` | `show` starts the activity or updates it when running (default), `end` removes it |
+| `id` | Activity id (required, the same ids as `start(id:...)`) |
+| `title` | Main line (required for `show`) |
+| `subtitle`, `status`, `symbol` | Optional, empty means none |
+| `timerStart`, `timerEnd` | Epoch milliseconds |
+| `countsDown` | `false` counts up, anything else counts down |
+| `progress` | 0 to 1, ignored when a timer is set |
+| `deepLink` | Opened when the user taps the activity |
+| `staleDate` | Epoch milliseconds when the notification removes itself |
+
+Send the message with high priority so it is delivered while the device is idle. The notification permission must already be granted: the library never prompts from a background message.
 
 ### Android
 
