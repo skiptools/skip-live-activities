@@ -86,4 +86,64 @@ let logger: Logger = Logger(subsystem: "SkipLiveActivities", category: "Tests")
         await LiveActivityManager.shared.end(id: "does-not-exist", finalContent: nil, dismissal: LiveActivityDismissal.immediate)
         #expect(LiveActivityManager.shared.activeIDs().isEmpty)
     }
+
+    // MARK: - Remote messages
+
+    @Test func testRemoteShowMessageParses() throws {
+        let command = LiveActivityRemoteCommand.parse([
+            "type": "live_activity",
+            "action": "show",
+            "id": "workout-1",
+            "title": "Spinning",
+            "subtitle": "Studio 2",
+            "timerStart": "1000000",
+            "timerEnd": "4600000",
+            "countsDown": "false",
+            "deepLink": "club://workout/1"
+        ])
+        #expect(command != nil)
+        #expect(command?.id == "workout-1")
+        #expect(command?.isEnd == false)
+        #expect(command?.content?.title == "Spinning")
+        #expect(command?.content?.subtitle == "Studio 2")
+        #expect(command?.content?.timer?.countsDown == false)
+        #expect(command?.content?.timer?.start == Date(timeIntervalSince1970: 1000.0))
+        #expect(command?.content?.timer?.end == Date(timeIntervalSince1970: 4600.0))
+        #expect(command?.content?.deepLink?.absoluteString == "club://workout/1")
+        #expect(command?.staleDate == nil)
+    }
+
+    @Test func testRemoteEmptyValuesBecomeNil() throws {
+        let command = LiveActivityRemoteCommand.parse([
+            "type": "live_activity", "action": "show", "id": "a", "title": "T",
+            "subtitle": "", "deepLink": "", "status": ""
+        ])
+        #expect(command?.content?.subtitle == nil)
+        #expect(command?.content?.status == nil)
+        #expect(command?.content?.deepLink == nil)
+        #expect(command?.content?.timer == nil)
+    }
+
+    @Test func testRemoteEndMessageParses() throws {
+        let command = LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "end", "id": "workout-1"])
+        #expect(command?.isEnd == true)
+        #expect(command?.id == "workout-1")
+        #expect(command?.content == nil)
+    }
+
+    @Test func testRemoteIgnoresOtherMessages() throws {
+        #expect(LiveActivityRemoteCommand.parse([:]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "workout", "id": "1", "title": "T"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "show", "title": "T"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "show", "id": "1"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "bogus", "id": "1", "title": "T"]) == nil)
+    }
+
+    @Test func testHandleRemoteMessageConsumesOnlyOwnMessages() async throws {
+        let other = await LiveActivityManager.shared.handleRemoteMessage(["type": "workout"])
+        #expect(other == false)
+        // ending an activity that is not running is a no-op but the message is still ours
+        let ours = await LiveActivityManager.shared.handleRemoteMessage(["type": "live_activity", "action": "end", "id": "does-not-exist"])
+        #expect(ours == true)
+    }
 }
