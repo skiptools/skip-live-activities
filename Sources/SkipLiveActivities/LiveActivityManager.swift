@@ -302,7 +302,7 @@ public final class LiveActivityManager {
     ///   `false` when it is not ours and should be handled elsewhere.
     @discardableResult
     public func handleRemoteMessage(_ data: [String: String]) async -> Bool {
-        guard let command = LiveActivityRemoteCommand(data: data) else { return false }
+        guard let command = LiveActivityRemoteCommand.parse(data) else { return false }
         if command.isEnd {
             await end(id: command.id, finalContent: nil, dismissal: LiveActivityDismissal.immediate)
             return true

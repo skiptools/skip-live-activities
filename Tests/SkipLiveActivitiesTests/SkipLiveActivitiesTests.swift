@@ -90,7 +90,7 @@ let logger: Logger = Logger(subsystem: "SkipLiveActivities", category: "Tests")
     // MARK: - Remote messages
 
     @Test func testRemoteShowMessageParses() throws {
-        let command = LiveActivityRemoteCommand(data: [
+        let command = LiveActivityRemoteCommand.parse([
             "type": "live_activity",
             "action": "show",
             "id": "workout-1",
@@ -114,7 +114,7 @@ let logger: Logger = Logger(subsystem: "SkipLiveActivities", category: "Tests")
     }
 
     @Test func testRemoteEmptyValuesBecomeNil() throws {
-        let command = LiveActivityRemoteCommand(data: [
+        let command = LiveActivityRemoteCommand.parse([
             "type": "live_activity", "action": "show", "id": "a", "title": "T",
             "subtitle": "", "deepLink": "", "status": ""
         ])
@@ -125,18 +125,18 @@ let logger: Logger = Logger(subsystem: "SkipLiveActivities", category: "Tests")
     }
 
     @Test func testRemoteEndMessageParses() throws {
-        let command = LiveActivityRemoteCommand(data: ["type": "live_activity", "action": "end", "id": "workout-1"])
+        let command = LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "end", "id": "workout-1"])
         #expect(command?.isEnd == true)
         #expect(command?.id == "workout-1")
         #expect(command?.content == nil)
     }
 
     @Test func testRemoteIgnoresOtherMessages() throws {
-        #expect(LiveActivityRemoteCommand(data: [:]) == nil)
-        #expect(LiveActivityRemoteCommand(data: ["type": "workout", "id": "1", "title": "T"]) == nil)
-        #expect(LiveActivityRemoteCommand(data: ["type": "live_activity", "action": "show", "title": "T"]) == nil)
-        #expect(LiveActivityRemoteCommand(data: ["type": "live_activity", "action": "show", "id": "1"]) == nil)
-        #expect(LiveActivityRemoteCommand(data: ["type": "live_activity", "action": "bogus", "id": "1", "title": "T"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse([:]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "workout", "id": "1", "title": "T"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "show", "title": "T"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "show", "id": "1"]) == nil)
+        #expect(LiveActivityRemoteCommand.parse(["type": "live_activity", "action": "bogus", "id": "1", "title": "T"]) == nil)
     }
 
     @Test func testHandleRemoteMessageConsumesOnlyOwnMessages() async throws {
